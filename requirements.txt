@@ -10,3 +10,6 @@ sentence-transformers
 transformers
 ollama
 PyMuPDF        # provides `import fitz`
+python-docx    # provides `import docx`
+networkx       # provides `import networkx`
+spacy          # run: python -m spacy download en_core_web_sm

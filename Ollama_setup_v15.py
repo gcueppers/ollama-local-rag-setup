@@ -67,10 +67,14 @@ import fitz  # PyMuPDF
 # CONFIGURATION
 # ============================================================================
 
+# Ollama API (e.g. local Docker: http://localhost:11434)
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+os.environ["OLLAMA_HOST"] = OLLAMA_HOST
+
 # Embedding & LLM Models
-# EMBED_MODEL_NAME = "mixedbread-ai/mxbai-embed-large-v1" # Commented in V13
+EMBED_MODEL_NAME = "mixedbread-ai/mxbai-embed-large-v1" # Commented in V13
 # EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-EMBED_MODEL_NAME = "local_models/all-MiniLM-L6-v2"  # <--local folder
+# EMBED_MODEL_NAME = "local_models/all-MiniLM-L6-v2"  # <--local folder
 TEXT_MODEL = "gemma3"
 # RERANKER_MODEL_NAME = "cross-encoder/ms-marco-TinyBERT-L2-v2"
 RERANKER_MODEL_NAME = "local_models/ms-marco-TinyBERT-L2-v2"  # <--local folder
@@ -97,6 +101,8 @@ AUDIT_LOG = "audit_log.json"  # INFORMATION OF OPERATION
 MAX_FILE_SIZE_MB = 500
 TOP_K_DEFAULT = 5
 MAX_TOKENS = 16000
+# Progress marker: print a dot every N chunks during long-running steps
+PROGRESS_DOT_EVERY_CHUNKS = 100
 
 # Generation
 TEMPERATURE = 0.3
@@ -792,6 +798,8 @@ def chunk_log_file(filepath: str, lines_per_chunk: int = LOG_LINES_PER_CHUNK) ->
                         "log_levels": list(current_chunk_metadata["log_levels"]),
                         "line_count": len(current_chunk_lines)
                     })
+                    if len(chunks) % PROGRESS_DOT_EVERY_CHUNKS == 0:
+                        print(".", end="", flush=True)
 
                     current_chunk_lines = []
                     current_chunk_metadata = {"start_line": line_number + 1, "log_levels": set()}
@@ -805,6 +813,7 @@ def chunk_log_file(filepath: str, lines_per_chunk: int = LOG_LINES_PER_CHUNK) ->
                 "log_levels": list(current_chunk_metadata["log_levels"]),
                 "line_count": len(current_chunk_lines)
             })
+        print()  # newline after "Chunking log... " line (and any progress dots)
 
     except Exception as e:
         print(f"Error reading log file {filepath}: {e}")
@@ -1180,6 +1189,7 @@ class TOONEnabledRAGSystem:
             perf_monitor.sample_resources()
 
             if ext == ".log":
+                print("   Chunking log (each . = 100 chunks)... ", end="", flush=True)
                 log_chunks = chunk_log_file(path, LOG_LINES_PER_CHUNK)
                 if not log_chunks:
                     print("   No valid log entries found")
@@ -1235,7 +1245,7 @@ class TOONEnabledRAGSystem:
         print(f"\n✓ Extracted {len(all_chunks)} total chunks")
 
         # Generate embeddings
-        print(f"\nGenerating embeddings (batch size: {EMBEDDING_BATCH_SIZE})...")
+        print(f"\nGenerating embeddings (batch size: {EMBEDDING_BATCH_SIZE}) — progress bar below...")
         embeddings = self.embedding_manager.embed_texts(all_chunks, batch_size=EMBEDDING_BATCH_SIZE)
         perf_monitor.metrics["indexing"]["embeddings_generated"] = len(embeddings)
 
